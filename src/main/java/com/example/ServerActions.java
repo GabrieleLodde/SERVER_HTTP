@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.ArrayList;
 
 public class ServerActions {
 
@@ -18,7 +19,8 @@ public class ServerActions {
     public DataOutputStream outVersoIlClient;
     public boolean exit;
     public String receivedString;
-    public Response response = new Response();
+    public File searchFile;
+    public String arrayString[];
 
     public ServerActions() {
         try {
@@ -27,60 +29,53 @@ public class ServerActions {
         } catch (IOException e) {
             System.out.println("Errore ServerSocket");
         }
-        try {
-            this.connected = server.accept();
-        } catch (IOException e) {
-            System.out.println("Errore Socket");
-        }
-        try {
-            this.inDalClient = new BufferedReader(new InputStreamReader(this.connected.getInputStream()));
-        } catch (IOException e) {
-            System.out.println("Errore BufferedReader");
-        }
-        try {
-            this.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
-        } catch (IOException e) {
-            System.out.println("Errore DataOutputStream");
-        }
         this.exit = false;
-        this.receivedString = "";
     }
 
     public void start() {
-        do {
-            try {
+        try {
+            this.connected = server.accept();
+            this.inDalClient = new BufferedReader(new InputStreamReader(this.connected.getInputStream()));
+            this.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
+            while (!exit) {
                 receivedString = inDalClient.readLine();
                 System.out.println(receivedString);
-                if (receivedString.equals(" ")) {
-                    this.setExit(true);
+                if (receivedString.isEmpty()) {
+                    break;
                 } else {
-                    String arrayString[] = receivedString.split(" ");
-                    if (arrayString.length != 3 || !arrayString[2].contains("HTTP")) {
-                        // STRINGA RICEVUTA NON CORRETTA
-                        getOutVersoIlClient().writeBytes("ERRORE SERVER" + "\n");
-                        response.setResponseCode("500");
-                    } else {
-                        arrayString[1] = arrayString[1].replaceFirst("/", "");
-                        File searchFile = new File("SERVERHTTP" + arrayString[1]);
+                    this.arrayString = receivedString.split(" ");
+                    if (arrayString.length == 3 && arrayString[2].contains("HTTP")) {
+                        // STRINGA RICEVUTA CORRETTA
+                        searchFile = new File("." + arrayString[1]);
                         if (searchFile.exists()) {
                             // FILE ESISTE
-                            getOutVersoIlClient().writeBytes("FILE PRESENTE" + "\n");
-                            readFile(searchFile);
-                            response.setResponseCode("200");
-                            response.setBody(getTextFile(searchFile));
-                            sendResponse();
+                            Response response = new Response();
+                            String textFile = readFile(searchFile);
+                            response.setBody(textFile);
+                            sendResponse(response);
+                            setExit(true);
                         } else {
                             // FILE NON ESISTE
+                            Response response = new Response();
+                            response.setResponseCode("404");
+                            sendResponse(response);
+                            System.out.println("Errore: file non trovato");
+                            setExit(true);
                         }
+                    } else {
+                        // RICHIESTA ERRATA
+                        Response response = new Response();
+                        response.setResponseCode("500");
+                        sendResponse(response);
+                        System.out.println("Internal Server Error");
+                        setExit(true);
                     }
                 }
-            } catch (IOException e) {
-                System.out.println("Errore ricezione");
             }
-        } while (!isExit());
+        } catch (IOException e) {
+            System.out.println("Errore generico");
+        }
         try {
-            inDalClient.close();
-            outVersoIlClient.close();
             connected.close();
         } catch (IOException e) {
             System.out.println("Errore nella chiusura del socket");
@@ -95,45 +90,31 @@ public class ServerActions {
         return this.exit;
     }
 
-    public void readFile(File searchFile) {
+    public static String readFile(File searchFile) {
+        String textFile = "";
         try {
             Scanner myReader = new Scanner(searchFile);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
+                textFile += data;
                 System.out.println(data);
             }
+            myReader.close();
         } catch (FileNotFoundException e) {
             System.out.println("File non trovato");
         }
+        return textFile;
     }
 
-    public String getTextFile(File searchFile) {
-        String dataFile = "";
-        Scanner myReader;
-        try {
-            myReader = new Scanner(searchFile);
-            while (myReader.hasNextLine()) {
-            String data = myReader.nextLine();
-            dataFile += data;
-        }
-        } catch (FileNotFoundException e) {
-            System.out.println("Errore nella ricezione del testo del file");
-        }
-        return dataFile;
-    }
-
-    public void sendResponse() {
-        for (String s : response.getResponseData()) {
-            System.out.println(s);
+    public void sendResponse(Response response) {
+        ArrayList<String> copyArray = response.getResponseData();
+        for (int i = 0; i < copyArray.size(); i++) {
             try {
-                getOutVersoIlClient().writeBytes(s + "\n");
+                System.out.println(copyArray.get(i));
+                outVersoIlClient.writeBytes(copyArray.get(i));
             } catch (IOException e) {
                 System.out.println("Errore nell'invio della risposta");
             }
         }
-    }
-
-    public DataOutputStream getOutVersoIlClient() {
-        return outVersoIlClient;
     }
 }
