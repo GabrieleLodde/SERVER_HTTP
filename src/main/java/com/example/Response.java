@@ -1,5 +1,6 @@
 package com.example;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
@@ -9,6 +10,7 @@ public class Response {
     public String date;
     public ArrayList<String> responseData;
     public String protocol;
+    public String contentType;
     public String body;
 
     public Response() {
@@ -16,6 +18,7 @@ public class Response {
         this.code = "200";
         this.phrase = "OK";
         this.date = LocalDateTime.now().toString();
+        this.contentType = "";
         this.body = "";
         this.responseData = new ArrayList<String>();
     }
@@ -53,7 +56,7 @@ public class Response {
         responseData.add(addString);
         addString = "Server: meucci-server" + "\n";
         responseData.add(addString);
-        addString = "Content-Type: text/html; charset=UTF-8" + "\n";
+        addString = "Content-Type: " + getContentType() + ";charset=UTF-8" + "\n";
         responseData.add(addString);
         addString = "Content-Length: " + body.length() + "\n";
         responseData.add(addString);
@@ -69,5 +72,26 @@ public class Response {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    public void setContentType(File f){
+        String [] type = f.getName().split("\\.");
+        String exit = type[type.length-1];
+        switch (exit) {
+            case "html":
+            case "htm":
+                this.contentType = "text/html";
+                break;
+            case "png":
+                this.contentType = "image/png";
+                break;
+            case "css":
+                this.contentType = "text/css";
+                break;
+        }
+    }
+
+    public String getContentType(){
+        return this.contentType;
     }
 }

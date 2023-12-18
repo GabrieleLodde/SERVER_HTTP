@@ -12,7 +12,6 @@ import java.util.Scanner;
 import java.util.ArrayList;
 
 public class ServerActions {
-
     public ServerSocket server;
     public Socket connected;
     public BufferedReader inDalClient;
@@ -34,46 +33,50 @@ public class ServerActions {
 
     public void start() {
         try {
-            this.connected = server.accept();
-            this.inDalClient = new BufferedReader(new InputStreamReader(this.connected.getInputStream()));
-            this.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
             while (!exit) {
-                receivedString = inDalClient.readLine();
-                System.out.println(receivedString);
-                if (receivedString.isEmpty()) {
-                    break;
-                } else {
-                    this.arrayString = receivedString.split(" ");
-                    if (arrayString.length == 3 && arrayString[2].contains("HTTP")) {
-                        // STRINGA RICEVUTA CORRETTA
-                        searchFile = new File("." + arrayString[1]);
-                        if (searchFile.exists()) {
-                            // FILE ESISTE
-                            Response response = new Response();
-                            String textFile = readFile(searchFile);
-                            response.setBody(textFile);
-                            sendResponse(response);
-                            setExit(true);
-                        } else {
-                            // FILE NON ESISTE
-                            Response response = new Response();
-                            response.setResponseCode("404");
-                            sendResponse(response);
-                            System.out.println("Errore: file non trovato");
-                            setExit(true);
-                        }
-                    } else {
-                        // RICHIESTA ERRATA
-                        Response response = new Response();
-                        response.setResponseCode("500");
-                        sendResponse(response);
-                        System.out.println("Internal Server Error");
-                        setExit(true);
+                this.connected = server.accept();
+                this.inDalClient = new BufferedReader(new InputStreamReader(this.connected.getInputStream()));
+                this.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
+                try {
+                    receivedString = inDalClient.readLine();
+                    System.out.println(receivedString);
+                    if (receivedString != null && !receivedString.isEmpty()) {
+                        this.arrayString = receivedString.split(" ");
+                        if (arrayString.length == 3 && arrayString[2].contains("HTTP")) {
+                            // STRINGA RICEVUTA CORRETTA
+                            searchFile = new File("htdocs/" + arrayString[1]);
+                            if (searchFile.exists()) {
+                                // FILE ESISTE
+                                Response response = new Response();
+                                String file = readFile(searchFile, arrayString[1].split("\\.")[1]);
+                                response.setContentType(searchFile);
+                                response.setBody(file);
+                                sendResponse(response);
+                            } else {
+                                // FILE NON ESISTE
+                                Response response = new Response();
+                                response.setResponseCode("404");
+                                sendResponse(response);
+                                System.out.println("Errore: file non trovato");
+                            }
+                        } /*
+                           * else {
+                           * // RICHIESTA ERRATA
+                           * Response response = new Response();
+                           * response.setResponseCode("500");
+                           * sendResponse(response);
+                           * System.out.println("Internal Server Error");
+                           * setExit(true);
+                           * }
+                           */
                     }
+                } catch (IOException e) {
+                    System.out.println("Errore generico " + e.getMessage());
+                    connected.close();
                 }
             }
         } catch (IOException e) {
-            System.out.println("Errore generico");
+            System.out.println("Errore generico " + e.getMessage());
         }
         try {
             connected.close();
@@ -90,18 +93,22 @@ public class ServerActions {
         return this.exit;
     }
 
-    public static String readFile(File searchFile) {
+    public static String readFile(File searchFile, String extension) throws IOException {
         String textFile = "";
-        try {
-            Scanner myReader = new Scanner(searchFile);
-            while (myReader.hasNextLine()) {
-                String data = myReader.nextLine();
-                textFile += data;
-                System.out.println(data);
+        if (extension.equals("html") || extension.equals("htm") || extension.equals("css")) {
+            try {
+                Scanner myReader = new Scanner(searchFile);
+                while (myReader.hasNextLine()) {
+                    String data = myReader.nextLine();
+                    textFile += data;
+                    System.out.println(data);
+                }
+                myReader.close();
+            } catch (FileNotFoundException e) {
+                System.out.println("File non trovato");
             }
-            myReader.close();
-        } catch (FileNotFoundException e) {
-            System.out.println("File non trovato");
+        } else if (extension.equals("png")) {
+            // serializzazione di un'immagine
         }
         return textFile;
     }
