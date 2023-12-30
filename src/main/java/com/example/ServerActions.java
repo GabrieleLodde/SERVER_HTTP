@@ -3,11 +3,14 @@ package com.example;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.LocalDateTime;
 import java.util.Scanner;
 import java.util.ArrayList;
 
@@ -15,7 +18,7 @@ public class ServerActions {
     public ServerSocket server;
     public Socket connected;
     public BufferedReader inDalClient;
-    public DataOutputStream outVersoIlClient;
+    public static DataOutputStream outVersoIlClient;
     public boolean exit;
     public String receivedString;
     public File searchFile;
@@ -36,42 +39,38 @@ public class ServerActions {
             while (!exit) {
                 this.connected = server.accept();
                 this.inDalClient = new BufferedReader(new InputStreamReader(this.connected.getInputStream()));
-                this.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
+                ServerActions.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
                 try {
                     receivedString = inDalClient.readLine();
                     System.out.println(receivedString);
                     if (receivedString != null && !receivedString.isEmpty()) {
                         this.arrayString = receivedString.split(" ");
                         if (arrayString.length == 3 && arrayString[2].contains("HTTP")) {
-                            // STRINGA RICEVUTA CORRETTA
                             searchFile = new File("htdocs/" + arrayString[1]);
                             if (searchFile.exists()) {
-                                // FILE ESISTE
-                                Response response = new Response();
-                                String file = readFile(searchFile, arrayString[1].split("\\.")[1]);
-                                response.setContentType(searchFile);
-                                response.setBody(file);
-                                sendResponse(response);
+                                if (arrayString[1].split("\\.")[1].equals("png")) {
+                                    sendImage(searchFile);
+                                } else {
+                                    Response response = new Response();
+                                    String file = readFile(searchFile, arrayString[1].split("\\.")[1]);
+                                    response.setContentType(searchFile);
+                                    response.setBody(file);
+                                    sendResponse(response);
+                                }
                             } else {
-                                // FILE NON ESISTE
                                 Response response = new Response();
+                                File errorFile = new File("fileErr.html");
+                                String fileErr = readFile(errorFile, "html");
                                 response.setResponseCode("404");
+                                response.setContentType(errorFile);
+                                response.setBody(fileErr);
                                 sendResponse(response);
                                 System.out.println("Errore: file non trovato");
                             }
-                        } /*
-                           * else {
-                           * // RICHIESTA ERRATA
-                           * Response response = new Response();
-                           * response.setResponseCode("500");
-                           * sendResponse(response);
-                           * System.out.println("Internal Server Error");
-                           * setExit(true);
-                           * }
-                           */
+                        }
                     }
                 } catch (IOException e) {
-                    System.out.println("Errore generico " + e.getMessage());
+                    System.out.println("Errore generico interno " + e.getMessage());
                     connected.close();
                 }
             }
@@ -93,7 +92,7 @@ public class ServerActions {
         return this.exit;
     }
 
-    public static String readFile(File searchFile, String extension) throws IOException {
+    public String readFile(File searchFile, String extension) throws IOException {
         String textFile = "";
         if (extension.equals("html") || extension.equals("htm") || extension.equals("css")) {
             try {
@@ -107,8 +106,6 @@ public class ServerActions {
             } catch (FileNotFoundException e) {
                 System.out.println("File non trovato");
             }
-        } else if (extension.equals("png")) {
-            // serializzazione di un'immagine
         }
         return textFile;
     }
@@ -121,7 +118,29 @@ public class ServerActions {
                 outVersoIlClient.writeBytes(copyArray.get(i));
             } catch (IOException e) {
                 System.out.println("Errore nell'invio della risposta");
+                e.printStackTrace();
             }
         }
+    }
+
+    private static void sendImage(File searchFile) throws IOException {
+        outVersoIlClient.writeBytes("HTTP/1.1 200 OK\n");
+        System.out.println("HTTP/1.1 200 OK\n");
+        outVersoIlClient.writeBytes("Date: " + LocalDateTime.now().toString() + "\n");
+        System.out.println("Date: " + LocalDateTime.now().toString() + "\n");
+        outVersoIlClient.writeBytes("Server: Lodde-server" + "\n");
+        System.out.println("Server: Lodde-server\n");
+        outVersoIlClient.writeBytes("Content-Type: " + "image/png" + "\n");
+        System.out.println("Content-Type: " + "image/png\n");
+        outVersoIlClient.writeBytes("Content-Length: " + searchFile.length() + "\n");
+        System.out.println("Content-Length: " + searchFile.length());
+        outVersoIlClient.writeBytes("\n");
+        InputStream input = new FileInputStream(searchFile);
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = input.read(buf)) != -1) {
+            outVersoIlClient.write(buf, 0, n);
+        }
+        input.close();
     }
 }

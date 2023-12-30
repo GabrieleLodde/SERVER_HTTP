@@ -54,7 +54,7 @@ public class Response {
         responseData.add(addString);
         addString = "Date: " + date + "\n";
         responseData.add(addString);
-        addString = "Server: meucci-server" + "\n";
+        addString = "Server: Lodde-server" + "\n";
         responseData.add(addString);
         addString = "Content-Type: " + getContentType() + ";charset=UTF-8" + "\n";
         responseData.add(addString);
