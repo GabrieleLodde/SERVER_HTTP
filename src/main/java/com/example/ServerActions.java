@@ -4,15 +4,17 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.time.LocalDateTime;
-import java.util.Scanner;
 import java.util.ArrayList;
+import java.util.Date;
+
+import com.fasterxml.jackson.core.exc.StreamWriteException;
+import com.fasterxml.jackson.databind.DatabindException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ServerActions {
     public ServerSocket server;
@@ -39,7 +41,8 @@ public class ServerActions {
             while (!exit) {
                 this.connected = server.accept();
                 this.inDalClient = new BufferedReader(new InputStreamReader(this.connected.getInputStream()));
-                ServerActions.outVersoIlClient = new DataOutputStream(new DataOutputStream(connected.getOutputStream()));
+                ServerActions.outVersoIlClient = new DataOutputStream(
+                        new DataOutputStream(connected.getOutputStream()));
                 try {
                     receivedString = inDalClient.readLine();
                     System.out.println(receivedString);
@@ -47,25 +50,24 @@ public class ServerActions {
                         this.arrayString = receivedString.split(" ");
                         if (arrayString.length == 3 && arrayString[2].contains("HTTP")) {
                             searchFile = new File("htdocs/" + arrayString[1]);
+                            if (searchFile.isDirectory()) {
+                                searchFile = new File("htdocs/mio_file.html");
+                            }
+                            Response response = new Response();
                             if (searchFile.exists()) {
-                                if (arrayString[1].split("\\.")[1].equals("png")) {
-                                    sendImage(searchFile);
-                                } else {
-                                    Response response = new Response();
-                                    String file = readFile(searchFile, arrayString[1].split("\\.")[1]);
-                                    response.setContentType(searchFile);
-                                    response.setBody(file);
-                                    sendResponse(response);
-                                }
+                                response.setContentType(searchFile);
+                                sendResponse(response, searchFile);
                             } else {
-                                Response response = new Response();
-                                File errorFile = new File("fileErr.html");
-                                String fileErr = readFile(errorFile, "html");
-                                response.setResponseCode("404");
-                                response.setContentType(errorFile);
-                                response.setBody(fileErr);
-                                sendResponse(response);
-                                System.out.println("Errore: file non trovato");
+                                if (searchFile.getPath().equals("htdocs/classe.json")) {
+                                    System.out.println("PUZZI DI GIOELE");
+                                    serializationDeserialization(response);
+                                } else {
+                                    File errorFile = new File("fileErr.html");
+                                    response.setResponseCode("404");
+                                    response.setContentType(errorFile);
+                                    sendResponse(response, errorFile);
+                                    System.out.println("Errore: file non trovato\n");
+                                }
                             }
                         }
                     }
@@ -92,26 +94,18 @@ public class ServerActions {
         return this.exit;
     }
 
-    public String readFile(File searchFile, String extension) throws IOException {
-        String textFile = "";
-        if (extension.equals("html") || extension.equals("htm") || extension.equals("css")) {
-            try {
-                Scanner myReader = new Scanner(searchFile);
-                while (myReader.hasNextLine()) {
-                    String data = myReader.nextLine();
-                    textFile += data;
-                    System.out.println(data);
-                }
-                myReader.close();
-            } catch (FileNotFoundException e) {
-                System.out.println("File non trovato");
-            }
+    public void readFile(File searchFile) throws IOException {
+        InputStream input = new FileInputStream(searchFile);
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = input.read(buf)) != -1) {
+            outVersoIlClient.write(buf, 0, n);
         }
-        return textFile;
+        input.close();
     }
 
-    public void sendResponse(Response response) {
-        ArrayList<String> copyArray = response.getResponseData();
+    public void sendResponse(Response response, File searchFile) {
+        ArrayList<String> copyArray = response.getResponseData(searchFile);
         for (int i = 0; i < copyArray.size(); i++) {
             try {
                 System.out.println(copyArray.get(i));
@@ -121,26 +115,34 @@ public class ServerActions {
                 e.printStackTrace();
             }
         }
+        try {
+            readFile(searchFile);
+            outVersoIlClient.writeBytes("" + "\n");
+        } catch (IOException e) {
+            System.out.println("Errore nell'invio della risposta");
+            e.printStackTrace();
+        }
+        System.out.println("");
     }
 
-    private static void sendImage(File searchFile) throws IOException {
-        outVersoIlClient.writeBytes("HTTP/1.1 200 OK\n");
-        System.out.println("HTTP/1.1 200 OK\n");
-        outVersoIlClient.writeBytes("Date: " + LocalDateTime.now().toString() + "\n");
-        System.out.println("Date: " + LocalDateTime.now().toString() + "\n");
-        outVersoIlClient.writeBytes("Server: Lodde-server" + "\n");
-        System.out.println("Server: Lodde-server\n");
-        outVersoIlClient.writeBytes("Content-Type: " + "image/png" + "\n");
-        System.out.println("Content-Type: " + "image/png\n");
-        outVersoIlClient.writeBytes("Content-Length: " + searchFile.length() + "\n");
-        System.out.println("Content-Length: " + searchFile.length());
-        outVersoIlClient.writeBytes("\n");
-        InputStream input = new FileInputStream(searchFile);
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = input.read(buf)) != -1) {
-            outVersoIlClient.write(buf, 0, n);
-        }
-        input.close();
+    public void serializationDeserialization(Response response)
+            throws StreamWriteException, DatabindException, IOException {
+        Alunno a = new Alunno("Pippo", "Rossi", new Date(2006, 07, 12));
+        Alunno b = new Alunno("Gioele", "Febbre", new Date(2005, 12, 03));
+        Alunno c = new Alunno("DJ", "Yang", new Date(2003, 06, 12));
+        Alunno d = new Alunno("Gabriele", "Lodde", new Date(2005, 06, 16));
+
+        ArrayList<Alunno> arrayAlunni = new ArrayList<Alunno>();
+        arrayAlunni.add(a);
+        arrayAlunni.add(b);
+        arrayAlunni.add(c);
+        arrayAlunni.add(d);
+
+        Classe c1 = new Classe(5, "BIA", "18-TW", arrayAlunni);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.writeValue(new File("htdocs/classe.json"), c1);
+        response.setContentType(new File("htdocs/classe.json"));
+        sendResponse(response, new File("htdocs/classe.json"));
     }
 }

@@ -11,7 +11,6 @@ public class Response {
     public ArrayList<String> responseData;
     public String protocol;
     public String contentType;
-    public String body;
 
     public Response() {
         this.protocol = "HTTP/1.1";
@@ -19,7 +18,6 @@ public class Response {
         this.phrase = "OK";
         this.date = LocalDateTime.now().toString();
         this.contentType = "";
-        this.body = "";
         this.responseData = new ArrayList<String>();
     }
 
@@ -38,7 +36,6 @@ public class Response {
             case "404":
                 this.code = code;
                 this.phrase = "Not found";
-                this.body = "The resource was not found";
                 break;
 
             case "500":
@@ -48,7 +45,7 @@ public class Response {
         }
     }
 
-    public ArrayList<String> getResponseData() {
+    public ArrayList<String> getResponseData(File searchFile) {
         String addString;
         addString = protocol + " " + code + " " + phrase + "\n";
         responseData.add(addString);
@@ -58,20 +55,11 @@ public class Response {
         responseData.add(addString);
         addString = "Content-Type: " + getContentType() + ";charset=UTF-8" + "\n";
         responseData.add(addString);
-        addString = "Content-Length: " + body.length() + "\n";
+        addString = "Content-Length: " + searchFile.length() + "\n";
         responseData.add(addString);
         addString = "\n";
         responseData.add(addString);
-        if (body.length() > 0) {
-            responseData.add(body);
-            addString = "\n";
-            responseData.add(addString);
-        }
         return responseData;
-    }
-
-    public void setBody(String body) {
-        this.body = body;
     }
 
     public void setContentType(File f){
@@ -87,6 +75,9 @@ public class Response {
                 break;
             case "css":
                 this.contentType = "text/css";
+                break;
+            case "json":
+                this.contentType = "application/json";
                 break;
         }
     }
