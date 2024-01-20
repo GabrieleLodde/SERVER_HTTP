@@ -59,7 +59,6 @@ public class ServerActions {
                                 sendResponse(response, searchFile);
                             } else {
                                 if (searchFile.getPath().equals("htdocs/classe.json")) {
-                                    System.out.println("PUZZI DI GIOELE");
                                     serializationDeserialization(response);
                                 } else {
                                     File errorFile = new File("fileErr.html");
